@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Block Shooter</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --ui: rgba(255,255,255,.9);
+    --muted: rgba(255,255,255,.65);
+    --panel: rgba(10, 14, 24, .72);
+    --panel2: rgba(255,255,255,.08);
+    --accent: #7cf7ff;
+  }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, #0b1230 0%, #04060b 55%, #020305 100%);
+    color: white;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    user-select: none;
+    touch-action: none;
+  }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+  }
+  .topbar {
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.05));
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.25);
+    backdrop-filter: blur(10px);
+    pointer-events: none;
+  }
+  .pill {
+    display: inline-flex;
+    gap: 8px;
+    align-items: baseline;
+    font-weight: 700;
+    letter-spacing: .02em;
+    white-space: nowrap;
+  }
+  .pill small { color: var(--muted); font-weight: 600; }
+  .rightbar {
+    position: absolute;
+    right: 16px;
+    top: 14px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.05));
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.25);
+    backdrop-filter: blur(10px);
+    text-align: right;
+  }
+  .centerOverlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .panel {
+    width: min(860px, calc(100vw - 32px));
+    background: linear-gradient(180deg, rgba(9, 13, 24, .78), rgba(9, 13, 24, .58));
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 28px;
+    box-shadow: 0 28px 80px rgba(0,0,0,.42);
+    backdrop-filter: blur(12px);
+    padding: 28px;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .title {
+    font-size: clamp(42px, 7vw, 82px);
+    line-height: .9;
+    margin: 0 0 8px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    text-shadow: 0 0 24px rgba(124,247,255,.2), 0 0 36px rgba(132,94,255,.16);
+  }
+  .subtitle {
+    margin: 0 0 18px;
+    color: rgba(255,255,255,.82);
+    font-size: clamp(15px, 1.8vw, 18px);
+    line-height: 1.55;
+  }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr;
+    gap: 18px;
+  }
+  .box {
+    padding: 16px 16px 14px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.055);
+    border: 1px solid rgba(255,255,255,.09);
+  }
+  .box h3 { margin: 0 0 10px; font-size: 18px; }
+  .box p, .box li {
+    margin: 0;
+    color: rgba(255,255,255,.78);
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  .box ul { margin: 0; padding-left: 18px; }
+  .actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+  button {
+    pointer-events: auto;
+    appearance: none;
+    border: 0;
+    border-radius: 18px;
+    padding: 14px 18px;
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: .03em;
+    cursor: pointer;
+    color: #081019;
+    background: linear-gradient(180deg, #8ff7ff, #4dd7ff);
+    box-shadow: 0 12px 34px rgba(62, 217, 255, .24);
+    transition: transform .15s ease, filter .15s ease;
+  }
+  button:hover { transform: translateY(-1px) scale(1.01); filter: brightness(1.02); }
+  button:active { transform: translateY(1px) scale(.99); }
+  .ghost {
+    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.07));
+    color: white;
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: none;
+  }
+  .scoreboard {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .scoreline {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 12px;
+    color: rgba(255,255,255,.82);
+    font-size: 14px;
+  }
+  .kbd {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 7px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.12);
+    font-weight: 700;
+  }
+  .hidden { display: none !important; }
+  .cornerHint {
+    position: absolute;
+    bottom: 14px;
+    left: 16px;
+    color: rgba(255,255,255,.55);
+    font-size: 12px;
+    background: rgba(0,0,0,.18);
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="topbar">
+    <div class="pill"><small>Score</small> <span id="score">0</span></div>
+    <div class="pill"><small>Level</small> <span id="level">1</span></div>
+    <div class="pill"><small>Blocks</small> <span id="blocks">1</span></div>
+  </div>
+  <div class="rightbar">
+    <div class="pill"><small>High</small> <span id="high">0</span></div>
+    <div style="height:4px"></div>
+    <div class="pill"><small>Lives</small> <span id="lives">1</span></div>
+  </div>
+  <div class="centerOverlay" id="startOverlay">
+    <div class="panel">
+      <h1 class="title">Block Shooter</h1>
+      <p class="subtitle">A retro block-form space shooter. Move your ship with the mouse or touch. Add enemy blocks to your ship by collecting their ghost forms. Every block color has a consistent ability.</p>
+      <div class="grid2">
+        <div class="box">
+          <h3>How to play</h3>
+          <ul>
+            <li>Your ship follows your cursor or finger with no smoothing lag.</li>
+            <li>Black blocks fire simple pulses. Yellow is rapid fire. Orange is spread. Red is laser. Cyan is random. Purple is spiral. Gray is shield.</li>
+            <li>Destroy special blocks to spawn ghost pickups. Touch the ghost to attach the block to your ship.</li>
+            <li>If a player block is shot, it fades away. Lose the last block and the run ends.</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h3>Tips</h3>
+          <p>Enemy formations grow more complex each level, but only a quarter or less of their blocks have special abilities. Music and sound are procedural, so the game works as a single HTML file.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="startBtn">Start Run</button>
+        <button id="muteBtn" class="ghost">Sound: On</button>
+      </div>
+      <div class="scoreboard" id="scoreboardStart"></div>
+    </div>
+  </div>
+  <div class="centerOverlay hidden" id="gameOverOverlay">
+    <div class="panel">
+      <h1 class="title">Game Over</h1>
+      <p class="subtitle">Your ship has been reduced to nothing. Run it back and build a stronger block formation.</p>
+      <div class="grid2">
+        <div class="box">
+          <h3>Run summary</h3>
+          <p id="summaryText"></p>
+        </div>
+        <div class="box">
+          <h3>Local high score board</h3>
+          <div class="scoreboard" id="scoreboardOver"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="restartBtn">Restart</button>
+        <button id="backBtn" class="ghost">Back to title</button>
+      </div>
+    </div>
+  </div>
+  <div class="cornerHint" id="hint">Click or tap to begin. Move anywhere to steer, and keep firing by surviving.</div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const levelEl = document.getElementById('level');
+  const blocksEl = document.getElementById('blocks');
+  const highEl = document.getElementById('high');
+  const livesEl = document.getElementById('lives');
+  const startOverlay = document.getElementById('startOverlay');
+  const overOverlay = document.getElementById('gameOverOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const backBtn = document.getElementById('backBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const hintEl = document.getElementById('hint');
+  const scoreboardStart = document.getElementById('scoreboardStart');
+  const scoreboardOver = document.getElementById('scoreboardOver');
+  const summaryText = document.getElementById('summaryText');
+
+  const COLORS = {
+    player: '#62b7ff',
+    enemy: '#000000',
+    rapid: '#f7e54b',
+    spread: '#ff9a34',
+    laser: '#ff435a',
+    random: '#48e6e1',
+    spiral: '#b56cff',
+    shield: '#9b9ea8',
+    ghost: '#d6fbff',
+    pulse: '#ffffff',
+    bulletEnemy: '#ff8f5e',
+    bulletPlayer: '#a6f6ff'
+  };
+
+  const STORAGE_KEY = 'block-shooter-highscores-v1';
+  const SETTINGS_KEY = 'block-shooter-settings-v1';
+  const CELL = 18;
+  const PLAYER_FIRE_BASE = 0.26;
+
+  let W = 0, H = 0, DPR = 1;
+  let state = 'title';
+  let muted = false;
+  let audio = null;
+  let music = null;
+  let score = 0;
+  let level = 1;
+  let levelProgress = 0;
+  let levelHue = 190;
+  let spawnTimer = 0;
+  let spawnInterval = 2.4;
+  let nextId = 1;
+  let time = 0;
+  let particles = [];
+  let bullets = [];
+  let enemies = [];
+  let ghosts = [];
+  let stars = [];
+  let pointer = { x: 0, y: 0, active: false };
+  let highscores = loadHighScores();
+
+  const player = {
+    x: 0,
+    y: 0,
+    targetX: 0,
+    targetY: 0,
+    blocks: [],
+    invuln: 0,
+    fireTick: 0,
+    combo: 1
+  };
+
+  function rand(a = 1, b = 0) { return Math.random() * (a - b) + b; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+  function choose(arr) { return arr[(Math.random() * arr.length) | 0]; }
+  function sign(v) { return v < 0 ? -1 : 1; }
+
+  function loadHighScores() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveHighScores() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(highscores.slice(0, 5)));
+  }
+
+  function syncScoreboards() {
+    const html = highscores.length
+      ? highscores.map((s, i) => `<div class="scoreline"><span>#${i + 1} ${escapeHtml(s.name)}</span><strong>${s.score}</strong></div>`).join('')
+      : `<div class="scoreline"><span>No scores yet</span><strong>—</strong></div>`;
+    scoreboardStart.innerHTML = html;
+    scoreboardOver.innerHTML = html;
+    highEl.textContent = highscores[0]?.score ?? 0;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = canvas.width = Math.floor(innerWidth * DPR);
+    H = canvas.height = Math.floor(innerHeight * DPR);
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    buildStars();
+  }
+
+  function buildStars() {
+    stars = Array.from({ length: Math.floor((innerWidth * innerHeight) / 22000) + 80 }, () => ({
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
+      z: rand(1, 0.2),
+      r: rand(1.7, 0.4)
+    }));
+  }
+
+  function resetGame() {
+    score = 0;
+    level = 1;
+    levelProgress = 0;
+    levelHue = 190;
+    spawnTimer = 0;
+    spawnInterval = 2.4;
+    time = 0;
+    particles = [];
+    bullets = [];
+    enemies = [];
+    ghosts = [];
+    player.blocks = [makeBlock(0, 0, 'pulse', COLORS.enemy, true, true)];
+    player.invuln = 1;
+    player.fireTick = 0;
+    player.combo = 1;
+    player.x = innerWidth * 0.25;
+    player.y = innerHeight * 0.5;
+    player.targetX = player.x;
+    player.targetY = player.y;
+    pointer.x = player.x;
+    pointer.y = player.y;
+    pointer.active = false;
+    updateHud();
+    resetLevelTheme();
+  }
+
+  function resetLevelTheme() {
+    const hue = (190 + level * 17) % 360;
+    levelHue = hue;
+    document.documentElement.style.setProperty('--accent', `hsl(${hue}, 100%, 72%)`);
+  }
+
+  function makeBlock(gx, gy, ability, color, isPlayer = false, isCore = false) {
+    return {
+      id: nextId++,
+      gx, gy,
+      ability,
+      color,
+      isPlayer,
+      isCore,
+      alive: true,
+      hp: 1,
+      fire: 0,
+      shieldUp: ability === 'shield',
+      shieldCooldown: 0,
+      shieldTimer: 0,
+      phase: Math.random() * Math.PI * 2,
+      wobble: rand(0.4, 1.2),
+      flash: 0,
+      fade: 0,
+      active: true
+    };
+  }
+
+  function blockColorForAbility(ability) {
+    return COLORS[ability] || COLORS.enemy;
+  }
+
+  function abilityForEnemyBlock() {
+    const pool = ['rapid', 'spread', 'laser', 'random', 'spiral', 'shield'];
+    return choose(pool);
+  }
+
+  function maybeSpecialColor(block) {
+    if (!block.ability || block.ability === 'pulse') return COLORS.enemy;
+    return blockColorForAbility(block.ability);
+  }
+
+  function spawnEnemy() {
+    const sizeRoll = Math.random();
+    const size = level < 3 ? 1 + (sizeRoll > 0.75 ? 1 : 0) : level < 7 ? 1 + (sizeRoll > 0.5 ? 1 : 0) + (sizeRoll > 0.85 ? 1 : 0) : 2 + ((Math.random() * 3) | 0);
+    const maxSpecial = Math.max(1, Math.floor(size * 0.25));
+    const specialCount = Math.min(maxSpecial, Math.random() < 0.7 ? 1 : 0 + (size > 3 && Math.random() < 0.3 ? 1 : 0));
+    const blocks = createConnectedShape(size, specialCount);
+    const pathType = choose(level < 3 ? ['wave', 'drift'] : level < 6 ? ['wave', 'zigzag', 'dive'] : ['wave', 'zigzag', 'dive', 'arc', 'sweep']);
+    const fromTop = Math.random() < 0.12;
+    const enemy = {
+      id: nextId++,
+      x: innerWidth + 80,
+      y: fromTop ? rand(innerHeight * 0.28, 20) : rand(innerHeight * 0.82, innerHeight * 0.18),
+      vx: -(70 + level * 10 + rand(0, 35)),
+      vy: rand(16, -16),
+      t: 0,
+      speed: rand(0.12, 0.05) + level * 0.006,
+      pathType,
+      seed: Math.random() * 1000,
+      amp: rand(34, 14) + level * 1.6,
+      blocks,
+      hp: blocks.length,
+      dead: false,
+      shotBias: rand(1.8, .8),
+      drift: rand(1, -1),
+      phase: Math.random() * Math.PI * 2
+    };
+    enemies.push(enemy);
+  }
+
+  function createConnectedShape(count, specialCount) {
+    const cells = [{ x: 0, y: 0 }];
+    const occupied = new Set(['0,0']);
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    while (cells.length < count) {
+      const base = choose(cells);
+      const [dx, dy] = choose(dirs);
+      const nx = base.x + dx, ny = base.y + dy;
+      const key = nx + ',' + ny;
+      if (!occupied.has(key)) {
+        occupied.add(key);
+        cells.push({ x: nx, y: ny });
+      }
+    }
+    const specials = new Set();
+    while (specials.size < specialCount && specials.size < cells.length - 1) {
+      specials.add((1 + Math.random() * (cells.length - 1)) | 0);
+    }
+    const abilitiesPool = ['rapid', 'spread', 'laser', 'random', 'spiral', 'shield'];
+    return cells.map((c, i) => {
+      const hasSpecial = specials.has(i);
+      const ability = hasSpecial ? choose(abilitiesPool) : 'pulse';
+      return {
+        gx: c.x,
+        gy: c.y,
+        ability,
+        color: hasSpecial ? blockColorForAbility(ability) : COLORS.enemy,
+        alive: true,
+        fire: Math.random() * 1.5,
+        shieldUp: ability === 'shield',
+        shieldCooldown: 0,
+        shieldTimer: 0,
+        flash: 0,
+        fade: 0,
+        ghosted: false,
+        active: true,
+        phase: Math.random() * Math.PI * 2,
+        wobble: rand(0.7, 1.2)
+      };
+    });
+  }
+
+  function collectGhost(g) {
+    if (!g || g.collected) return;
+    g.collected = true;
+    const newBlock = makeBlock(0, 0, g.ability, g.color, true, false);
+    const side = resolveAttachSide(g.x, g.y);
+    attachPlayerBlock(newBlock, side);
+    score += 120 + level * 18;
+    player.combo = Math.min(12, player.combo + 1);
+    sfx('collect', 0.8);
+    burst(g.x, g.y, g.color, 20, 150, 3.5);
+  }
+
+  function resolveAttachSide(x, y) {
+    const bounds = getPlayerBounds();
+    const cx = (bounds.minX + bounds.maxX) * 0.5;
+    const cy = (bounds.minY + bounds.maxY) * 0.5;
+    const dx = x - cx;
+    const dy = y - cy;
+    if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+    return dy > 0 ? 'bottom' : 'top';
+  }
+
+  function attachPlayerBlock(block, side) {
+    const occupied = new Set(player.blocks.filter(b => b.alive).map(b => `${b.gx},${b.gy}`));
+    const limits = getPlayerBounds();
+    let target = { x: 0, y: 0 };
+    if (side === 'right') target = { x: limits.maxX + 1, y: nearestYWithin(player.y) };
+    if (side === 'left') target = { x: limits.minX - 1, y: nearestYWithin(player.y) };
+    if (side === 'top') target = { x: nearestXWithin(player.x), y: limits.minY - 1 };
+    if (side === 'bottom') target = { x: nearestXWithin(player.x), y: limits.maxY + 1 };
+
+    let { x, y } = target;
+    let tries = 0;
+    while (occupied.has(`${x},${y}`) && tries < 12) {
+      if (side === 'right') x++;
+      else if (side === 'left') x--;
+      else if (side === 'top') y--;
+      else if (side === 'bottom') y++;
+      tries++;
+    }
+    block.gx = x;
+    block.gy = y;
+    block.active = true;
+    block.fade = 0;
+    player.blocks.push(block);
+    sfx('attach', 0.6);
+  }
+
+  function nearestXWithin(px) {
+    const bounds = getPlayerBounds();
+    return Math.round((px - player.x) / CELL);
+  }
+  function nearestYWithin(py) {
+    return Math.round((py - player.y) / CELL);
+  }
+
+  function getPlayerBounds() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const b of player.blocks.filter(b => b.alive)) {
+      minX = Math.min(minX, b.gx);
+      minY = Math.min(minY, b.gy);
+      maxX = Math.max(maxX, b.gx);
+      maxY = Math.max(maxY, b.gy);
+    }
+    return { minX, minY, maxX, maxY };
+  }
+
+  function updateHud() {
+    scoreEl.textContent = Math.floor(score);
+    levelEl.textContent = level;
+    blocksEl.textContent = player.blocks.filter(b => b.alive).length;
+    livesEl.textContent = player.blocks.filter(b => b.alive).length;
+    highEl.textContent = highscores[0]?.score ?? 0;
+  }
+
+  function startGame() {
+    if (state === 'play') return;
+    ensureAudio();
+    resetGame();
+    state = 'play';
+    startOverlay.classList.add('hidden');
+    overOverlay.classList.add('hidden');
+    hintEl.classList.add('hidden');
+    music?.start();
+    sfx('start', 0.9);
+  }
+
+  function gameOver() {
+    if (state !== 'play') return;
+    state = 'over';
+    music?.stop();
+    sfx('gameover', 1);
+    const entry = { name: 'YOU', score: Math.floor(score) };
+    highscores = [entry, ...highscores.filter(s => s.score !== entry.score || s.name !== entry.name)]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    saveHighScores();
+    syncScoreboards();
+    summaryText.textContent = `Score ${Math.floor(score)} at level ${level}. You finished with ${player.blocks.filter(b => b.alive).length} block${player.blocks.filter(b => b.alive).length === 1 ? '' : 's'} remaining.`;
+    overOverlay.classList.remove('hidden');
+  }
+
+  function ensureAudio() {
+    if (audio) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    music = makeMusic(audio);
+  }
+
+  function sfx(type, gain = 1) {
+    if (!audio || muted) return;
+    const t = audio.currentTime;
+    const out = audio.createGain();
+    out.gain.value = 0.15 * gain;
+    out.connect(audio.destination);
+
+    const makeOsc = (freq, wave, dur, startGain = 1, endGain = 0) => {
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.type = wave;
+      o.frequency.setValueAtTime(freq, t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.72), t + dur);
+      g.gain.setValueAtTime(startGain, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, endGain), t + dur);
+      o.connect(g).connect(out);
+      o.start(t);
+      o.stop(t + dur + 0.03);
+    };
+
+    const noiseBurst = (dur = 0.08, hp = 800) => {
+      const buffer = audio.createBuffer(1, audio.sampleRate * dur, audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      const src = audio.createBufferSource();
+      const filter = audio.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = hp;
+      src.buffer = buffer;
+      src.connect(filter).connect(out);
+      src.start(t);
+      src.stop(t + dur);
+    };
+
+    if (type === 'shoot') {
+      makeOsc(460, 'square', 0.06, 0.25, 0.001);
+      makeOsc(920, 'triangle', 0.04, 0.08, 0.001);
+    } else if (type === 'hit') {
+      makeOsc(160, 'sawtooth', 0.09, 0.23, 0.001);
+      noiseBurst(0.05, 500);
+    } else if (type === 'explode') {
+      makeOsc(100, 'sawtooth', 0.15, 0.42, 0.001);
+      noiseBurst(0.14, 250);
+    } else if (type === 'collect') {
+      makeOsc(640, 'triangle', 0.08, 0.2, 0.001);
+      makeOsc(980, 'triangle', 0.06, 0.11, 0.001);
+    } else if (type === 'attach') {
+      makeOsc(520, 'sine', 0.06, 0.12, 0.001);
+    } else if (type === 'level') {
+      makeOsc(330, 'triangle', 0.12, 0.18, 0.001);
+      makeOsc(660, 'triangle', 0.16, 0.12, 0.001);
+    } else if (type === 'gameover') {
+      makeOsc(180, 'sawtooth', 0.24, 0.28, 0.001);
+      makeOsc(90, 'sine', 0.4, 0.18, 0.001);
+    } else if (type === 'start') {
+      makeOsc(440, 'triangle', 0.07, 0.16, 0.001);
+      makeOsc(660, 'triangle', 0.1, 0.12, 0.001);
+    }
+  }
+
+  function makeMusic(ac) {
+    let running = false;
+    let tick = 0;
+    const scale = [0, 3, 5, 7, 10, 12, 15];
+    const tempo = 0.24;
+    let timer = null;
+    function note(freq, dur, time) {
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.996, time + dur);
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.06, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+      const filter = ac.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 900;
+      osc.connect(filter).connect(g).connect(ac.destination);
+      osc.start(time);
+      osc.stop(time + dur + 0.05);
+    }
+    return {
+      start() {
+        if (running) return;
+        running = true;
+        tick = 0;
+        if (timer) clearInterval(timer);
+        timer = setInterval(() => {
+          if (!running || muted || state !== 'play') return;
+          const now = ac.currentTime;
+          const root = 110 + level * 2;
+          const n1 = root * Math.pow(2, scale[tick % scale.length] / 12);
+          const n2 = root * Math.pow(2, scale[(tick + 2) % scale.length] / 12);
+          const n3 = root * Math.pow(2, scale[(tick + 4) % scale.length] / 12);
+          note(n1, tempo * 1.8, now);
+          if (tick % 2 === 0) note(n2, tempo * 1.2, now + 0.02);
+          if (tick % 4 === 0) note(n3 * 2, tempo * .9, now + 0.03);
+          tick++;
+        }, 240);
+      },
+      stop() {
+        running = false;
+      }
+    };
+  }
+
+  function burst(x, y, color, count, speed, size = 2) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = speed * (0.3 + Math.random() * 0.7);
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color, size: size * (0.6 + Math.random() * 1.2) });
+    }
+  }
+
+  function fireBullet(x, y, vx, vy, owner, opts = {}) {
+    bullets.push({ x, y, vx, vy, owner, life: opts.life ?? 3.5, damage: opts.damage ?? 1, pierce: !!opts.pierce, color: opts.color || (owner === 'player' ? COLORS.bulletPlayer : COLORS.bulletEnemy), radius: opts.radius ?? 3.2, angle: opts.angle || 0 });
+  }
+
+  function firePlayerFromBlock(block, worldX, worldY) {
+    const ability = block.ability;
+    if (ability === 'shield') return;
+    const baseSpeed = 560;
+    const right = 0;
+    if (ability === 'pulse' || ability === 'enemy' || !ability) {
+      fireBullet(worldX + CELL * .75, worldY, baseSpeed, 0, 'player', { damage: 1, color: COLORS.bulletPlayer, radius: 3.3 });
+      sfx('shoot', 0.5);
+    } else if (ability === 'rapid') {
+      fireBullet(worldX + CELL * .8, worldY + rand(2, -2), baseSpeed + 40, 0, 'player', { damage: 1, color: COLORS.rapid, radius: 2.7 });
+      sfx('shoot', 0.42);
+    } else if (ability === 'spread') {
+      [-0.18, 0, 0.18].forEach(a => fireBullet(worldX + CELL * .8, worldY, Math.cos(a) * (baseSpeed - 20), Math.sin(a) * (baseSpeed - 20), 'player', { damage: 1, color: COLORS.spread, radius: 3.0 }));
+      sfx('shoot', 0.6);
+    } else if (ability === 'laser') {
+      fireBullet(worldX + CELL * .8, worldY, baseSpeed * 1.4, 0, 'player', { damage: 1, pierce: true, radius: 4.2, color: COLORS.laser, life: 2.3 });
+      sfx('shoot', 0.72);
+    } else if (ability === 'random') {
+      const spread = rand(.52, -.52);
+      fireBullet(worldX + CELL * .8, worldY, Math.cos(spread) * (baseSpeed - 40), Math.sin(spread) * (baseSpeed - 40), 'player', { damage: 1, color: COLORS.random, radius: 3.0 });
+      sfx('shoot', 0.5);
+    } else if (ability === 'spiral') {
+      const phase = time * 10 + block.phase;
+      const ang = Math.sin(phase) * 0.5;
+      fireBullet(worldX + CELL * .8, worldY + Math.sin(phase) * 2, Math.cos(ang) * (baseSpeed - 25), Math.sin(ang) * (baseSpeed - 25), 'player', { damage: 1, color: COLORS.spiral, radius: 3.1 });
+      sfx('shoot', 0.55);
+    }
+  }
+
+  function fireEnemyFromBlock(block, worldX, worldY, enemy, targetX, targetY) {
+    const ability = block.ability;
+    const dx = targetX - worldX;
+    const dy = targetY - worldY;
+    const ang = Math.atan2(dy, dx);
+    const base = 280 + level * 6;
+    if (ability === 'pulse') {
+      fireBullet(worldX - CELL * .7, worldY, -base, 0, 'enemy', { damage: 1, color: COLORS.bulletEnemy, radius: 3 });
+    } else if (ability === 'rapid') {
+      fireBullet(worldX - CELL * .7, worldY + Math.sin(time * 25 + block.phase) * 1.2, Math.cos(ang) * base, Math.sin(ang) * base, 'enemy', { damage: 1, color: COLORS.rapid, radius: 2.5 });
+    } else if (ability === 'spread') {
+      [-0.2, 0, 0.2].forEach(a => fireBullet(worldX, worldY, Math.cos(ang + Math.PI + a) * base, Math.sin(ang + Math.PI + a) * base, 'enemy', { damage: 1, color: COLORS.spread, radius: 2.9 }));
+    } else if (ability === 'laser') {
+      fireBullet(worldX, worldY, Math.cos(ang + Math.PI) * (base + 100), Math.sin(ang + Math.PI) * (base + 100), 'enemy', { damage: 1, pierce: true, color: COLORS.laser, radius: 4.2, life: 2.4 });
+    } else if (ability === 'random') {
+      const ra = ang + Math.PI + rand(0.6, -0.6);
+      fireBullet(worldX, worldY, Math.cos(ra) * base, Math.sin(ra) * base, 'enemy', { damage: 1, color: COLORS.random, radius: 2.8 });
+    } else if (ability === 'spiral') {
+      const spiral = ang + Math.PI + Math.sin(time * 10 + block.phase) * 0.7;
+      fireBullet(worldX, worldY, Math.cos(spiral) * base, Math.sin(spiral) * base, 'enemy', { damage: 1, color: COLORS.spiral, radius: 2.9 });
+    } else if (ability === 'shield') {
+      // shield blocks don't shoot
+    }
+    sfx('shoot', 0.28);
+  }
+
+  function update(dt) {
+    if (state !== 'play') return;
+    time += dt;
+    levelProgress += dt;
+    spawnTimer += dt;
+    const difficulty = 1 + level * 0.08;
+    spawnInterval = clamp(2.8 - level * 0.12 + Math.sin(time * 0.3) * 0.12, 0.55, 2.8);
+
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnEnemy();
+      if (level > 4 && Math.random() < 0.22) spawnEnemy();
+      if (level > 8 && Math.random() < 0.18) spawnEnemy();
+    }
+
+    const px = pointer.active ? pointer.x : innerWidth * 0.32;
+    const py = pointer.active ? pointer.y : innerHeight * 0.5;
+    player.targetX = px;
+    player.targetY = py;
+    player.x = px;
+    player.y = py;
+    player.invuln = Math.max(0, player.invuln - dt);
+
+    const aliveBlocks = player.blocks.filter(b => b.alive);
+    const totalAlive = aliveBlocks.length;
+    if (totalAlive === 0) {
+      gameOver();
+      return;
+    }
+
+    // Player blocks fire.
+    for (const block of aliveBlocks) {
+      block.fire -= dt;
+      if (block.shieldCooldown > 0) block.shieldCooldown -= dt;
+      if (block.shieldTimer > 0) block.shieldTimer -= dt;
+      if (block.ability === 'shield' && block.shieldCooldown <= 0) block.shieldUp = true;
+      const fireRate = block.ability === 'rapid' ? 0.11 : block.ability === 'spread' ? 0.34 : block.ability === 'laser' ? 0.86 : block.ability === 'random' ? 0.33 : block.ability === 'spiral' ? 0.18 : 0.42;
+      if (block.fire <= 0) {
+        const world = blockWorldPos(block);
+        firePlayerFromBlock(block, world.x, world.y);
+        block.fire = fireRate * (1 + Math.max(0, aliveBlocks.length - 1) * 0.015);
+      }
+      block.flash = Math.max(0, block.flash - dt * 2.5);
+      block.fade = Math.max(0, block.fade - dt * 0.65);
+    }
+
+    // Enemies.
+    for (const enemy of enemies) {
+      enemy.t += dt * enemy.speed;
+      const path = enemyPath(enemy, enemy.t);
+      enemy.x = path.x;
+      enemy.y = path.y;
+      for (const block of enemy.blocks) {
+        if (!block.alive) continue;
+        block.fire -= dt * (1 + level * 0.08);
+        if (block.shieldCooldown > 0) block.shieldCooldown -= dt;
+        if (block.shieldTimer > 0) block.shieldTimer -= dt;
+        if (block.ability === 'shield' && block.shieldCooldown <= 0) block.shieldUp = true;
+        if (block.fire <= 0) {
+          const world = enemyBlockWorldPos(enemy, block);
+          const target = choosePlayerAim();
+          const fireChance = block.ability === 'pulse' ? 0.2 : 1;
+          if (Math.random() < fireChance) fireEnemyFromBlock(block, world.x, world.y, enemy, target.x, target.y);
+          block.fire = blockFireRate(block.ability) * rand(1.3, .75);
+        }
+        block.flash = Math.max(0, block.flash - dt * 2.8);
+        block.fade = Math.max(0, block.fade - dt * 0.55);
+      }
+    }
+
+    // Bullets.
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0 || b.x < -80 || b.x > innerWidth + 80 || b.y < -80 || b.y > innerHeight + 80) {
+        bullets.splice(i, 1);
+        continue;
+      }
+      if (b.owner === 'player') {
+        let hit = false;
+        for (const enemy of enemies) {
+          if (enemy.dead) continue;
+          for (const block of enemy.blocks) {
+            if (!block.alive) continue;
+            const wp = enemyBlockWorldPos(enemy, block);
+            const rr = 11 + (block.ability === 'shield' ? 2 : 0);
+            if (dist(b.x, b.y, wp.x, wp.y) < rr) {
+              hitEnemyBlock(enemy, block, wp.x, wp.y, b);
+              hit = true;
+              if (!b.pierce) break;
+            }
+          }
+          if (hit && !b.pierce) break;
+        }
+        if (hit && !b.pierce) {
+          bullets.splice(i, 1);
+          continue;
+        }
+      } else {
+        for (const block of aliveBlocks) {
+          const wp = blockWorldPos(block);
+          const rr = 12;
+          if (dist(b.x, b.y, wp.x, wp.y) < rr) {
+            hitPlayerBlock(block, wp.x, wp.y, b);
+            if (!b.pierce) {
+              bullets.splice(i, 1);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Ghosts.
+    for (let i = ghosts.length - 1; i >= 0; i--) {
+      const g = ghosts[i];
+      g.x += Math.cos(g.wanderA) * dt * 20;
+      g.y += Math.sin(g.wanderB) * dt * 14;
+      g.wanderA += dt * 1.2;
+      g.wanderB += dt * 1.8;
+      g.bob += dt * 4;
+      if (dist(g.x, g.y, player.x, player.y) < 18 + aliveBlocks.length * 2) {
+        collectGhost(g);
+        ghosts.splice(i, 1);
+        continue;
+      }
+      g.life -= dt;
+      if (g.life <= 0) ghosts.splice(i, 1);
+    }
+
+    // Particles.
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt * 60;
+      p.y += p.vy * dt * 60;
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+      p.life -= dt * 1.25;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // Level progression.
+    if (levelProgress > 18 + level * 3.5) {
+      level++;
+      levelProgress = 0;
+      resetLevelTheme();
+      sfx('level', 0.8);
+      burst(innerWidth * 0.5, innerHeight * 0.25, `hsla(${levelHue},100%,70%,1)`, 40, 4, 4);
+    }
+
+    // Enemy cleanup and score.
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (e.dead) {
+        enemies.splice(i, 1);
+        continue;
+      }
+      const maxX = Math.max(...e.blocks.filter(b => b.alive).map(b => e.x + b.gx * CELL));
+      if (maxX < -140) enemies.splice(i, 1);
+    }
+
+    updateHud();
+  }
+
+  function blockFireRate(ability) {
+    return ability === 'rapid' ? 0.14 : ability === 'spread' ? 0.52 : ability === 'laser' ? 1.1 : ability === 'random' ? 0.42 : ability === 'spiral' ? 0.2 : ability === 'shield' ? 999 : 0.65;
+  }
+
+  function enemyPath(enemy, t) {
+    const startX = innerWidth + 80;
+    const travel = innerWidth + 220;
+    const x = startX - t * (travel + level * 8);
+    const baseY = enemy.y;
+    const s = enemy.seed;
+    let y = baseY;
+    if (enemy.pathType === 'wave') y += Math.sin(t * 6.2 + s) * (enemy.amp * 0.6);
+    else if (enemy.pathType === 'zigzag') y += Math.sign(Math.sin(t * 4 + s)) * (enemy.amp * 0.9);
+    else if (enemy.pathType === 'dive') y += Math.sin(t * 3.1 + s) * enemy.amp * 1.5 + Math.max(0, (t - .25) * 230) - Math.max(0, (t - .7) * 240);
+    else if (enemy.pathType === 'arc') y += Math.cos(t * 4 + s) * enemy.amp * 0.7;
+    else if (enemy.pathType === 'sweep') y += Math.sin(t * 1.6 + s) * enemy.amp * 1.2 + Math.sin(t * 8 + s * 2) * 18;
+    return { x, y };
+  }
+
+  function choosePlayerAim() {
+    const alive = player.blocks.filter(b => b.alive);
+    const target = choose(alive);
+    const wp = blockWorldPos(target);
+    return { x: wp.x, y: wp.y };
+  }
+
+  function blockWorldPos(block) {
+    return {
+      x: player.x + block.gx * CELL,
+      y: player.y + block.gy * CELL
+    };
+  }
+
+  function enemyBlockWorldPos(enemy, block) {
+    const wob = Math.sin(time * 2 + block.phase) * block.wobble * 1.5;
+    return {
+      x: enemy.x + block.gx * CELL + wob,
+      y: enemy.y + block.gy * CELL + Math.cos(time * 1.7 + block.phase) * block.wobble * 1.2
+    };
+  }
+
+  function hitEnemyBlock(enemy, block, x, y, bullet) {
+    if (!block.alive) return;
+    if (block.ability === 'shield') {
+      if (block.shieldUp) {
+        block.shieldUp = false;
+        block.shieldCooldown = 2.3 + Math.random() * 1.1;
+        block.flash = 1;
+        burst(x, y, block.color, 10, 2.5, 2.8);
+        sfx('hit', 0.55);
+        score += 12;
+        return;
+      }
+    }
+    block.alive = false;
+    block.flash = 1;
+    block.fade = 1;
+    enemy.hp--;
+    score += 60 + level * 8;
+    burst(x, y, block.color, 22, 4.1, 3.2);
+    sfx('explode', 0.75);
+    if (block.ability !== 'pulse') {
+      ghosts.push({ x, y, ability: block.ability, color: block.color, life: 30, bob: 0, wanderA: Math.random() * 6.28, wanderB: Math.random() * 6.28, collected: false });
+    }
+    if (enemy.blocks.every(b => !b.alive)) {
+      enemy.dead = true;
+      score += 140 + level * 18;
+      burst(enemy.x, enemy.y, '#ffffff', 34, 5.5, 3.5);
+      if (Math.random() < 0.07 + level * 0.003) player.invuln = Math.max(player.invuln, 0.2);
+    }
+  }
+
+  function hitPlayerBlock(block, x, y, bullet) {
+    if (!block.alive) return;
+    if (block.ability === 'shield') {
+      if (block.shieldUp) {
+        block.shieldUp = false;
+        block.shieldCooldown = 2.5 + Math.random() * 1.2;
+        block.flash = 1;
+        burst(x, y, block.color, 8, 3.4, 2.6);
+        sfx('hit', 0.45);
+        return;
+      }
+    }
+    block.alive = false;
+    block.fade = 1;
+    block.flash = 1;
+    burst(x, y, block.color, 22, 4.4, 3.0);
+    sfx('explode', 0.65);
+    if (player.blocks.filter(b => b.alive).length <= 1) {
+      gameOver();
+    }
+  }
+
+  function draw() {
+    const t = time;
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+
+    drawBackground(t);
+
+    // Stars.
+    ctx.save();
+    for (const s of stars) {
+      const tw = 0.6 + Math.sin(t * 1.8 + s.x * 0.01 + s.y * 0.02) * 0.25;
+      ctx.globalAlpha = 0.28 + s.z * 0.45;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(s.x, s.y, s.r * tw, s.r * tw);
+      s.x -= (0.2 + s.z * 0.9) * (1 + level * 0.02);
+      if (s.x < -6) { s.x = innerWidth + 6; s.y = Math.random() * innerHeight; }
+    }
+    ctx.restore();
+
+    // Ghosts.
+    for (const g of ghosts) {
+      const pulse = 0.5 + Math.sin(t * 5 + g.bob) * 0.15;
+      const alpha = 0.6 + Math.sin(t * 4 + g.bob) * 0.1;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = 'rgba(214,251,255,.8)';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = 'rgba(214,251,255,.14)';
+      roundedBlock(g.x, g.y, CELL * 0.9, CELL * 0.9, 5 * pulse, true);
+      ctx.restore();
+    }
+
+    // Bullets.
+    for (const b of bullets) {
+      ctx.save();
+      ctx.shadowColor = b.color;
+      ctx.shadowBlur = b.owner === 'player' ? 12 : 10;
+      ctx.fillStyle = b.color;
+      if (b.pierce) {
+        ctx.globalAlpha = 0.95;
+        drawBeam(b.x, b.y, b.vx, b.vy, b.owner === 'player' ? 38 : 26, b.radius * 2.1, b.color);
+      } else {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Enemies.
+    for (const enemy of enemies) {
+      for (const block of enemy.blocks) {
+        if (!block.alive && block.fade <= 0) continue;
+        const wp = enemyBlockWorldPos(enemy, block);
+        drawBlock(wp.x, wp.y, block, false, block.fade, block.shieldUp);
+      }
+    }
+
+    // Player ship.
+    const alive = player.blocks.filter(b => b.alive);
+    for (const block of alive) {
+      drawBlock(player.x + block.gx * CELL, player.y + block.gy * CELL, block, true, block.fade, block.shieldUp);
+    }
+
+    // Player cursor aura.
+    if (state === 'play') {
+      ctx.save();
+      const gx = player.x, gy = player.y;
+      const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, 120);
+      grad.addColorStop(0, `hsla(${levelHue},100%,65%,.18)`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(gx, gy, 120, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Particles.
+    for (const p of particles) {
+      ctx.save();
+      ctx.globalAlpha = clamp(p.life, 0, 1);
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+      ctx.restore();
+    }
+
+    if (state === 'play') {
+      // vignette
+      const vg = ctx.createRadialGradient(innerWidth * .5, innerHeight * .5, Math.min(innerWidth, innerHeight) * .2, innerWidth * .5, innerHeight * .5, Math.max(innerWidth, innerHeight) * .7);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,.34)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, innerWidth, innerHeight);
+    }
+  }
+
+  function drawBackground(t) {
+    const hue = levelHue;
+    const g1 = ctx.createLinearGradient(0, 0, 0, innerHeight);
+    g1.addColorStop(0, `hsl(${(hue + 22) % 360}, 45%, 8%)`);
+    g1.addColorStop(1, `hsl(${(hue + 0) % 360}, 35%, 3%)`);
+    ctx.fillStyle = g1;
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const auroras = [
+      { x: innerWidth * 0.25, y: innerHeight * 0.22, w: innerWidth * 0.55, h: innerHeight * 0.36, hue: (hue + Math.sin(t * .12) * 20 + 40) % 360, a: .18 },
+      { x: innerWidth * 0.62, y: innerHeight * 0.35, w: innerWidth * 0.48, h: innerHeight * 0.42, hue: (hue + 90 + Math.cos(t * .1) * 14) % 360, a: .12 },
+      { x: innerWidth * 0.4, y: innerHeight * 0.72, w: innerWidth * 0.62, h: innerHeight * 0.3, hue: (hue + 170 + Math.sin(t * .13) * 12) % 360, a: .08 }
+    ];
+    for (const a of auroras) {
+      const x = a.x + Math.sin(t * 0.25 + a.hue) * 28;
+      const y = a.y + Math.cos(t * 0.2 + a.hue) * 20;
+      const grad = ctx.createRadialGradient(x, y, 20, x, y, Math.max(a.w, a.h));
+      grad.addColorStop(0, `hsla(${a.hue}, 100%, 68%, ${a.a})`);
+      grad.addColorStop(0.55, `hsla(${(a.hue + 15) % 360}, 100%, 64%, ${a.a * 0.55})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(x, y, a.w, a.h, Math.sin(t * 0.08 + a.hue) * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = `hsla(${(hue + 35) % 360},100%,70%,.12)`;
+    ctx.lineWidth = 1;
+    for (let y = 0; y < innerHeight; y += 42) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + Math.sin(t * 0.8 + y * 0.03) * 1.5);
+      ctx.lineTo(innerWidth, y + Math.cos(t * 0.6 + y * 0.04) * 1.5);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawBeam(x, y, vx, vy, len, thickness, color) {
+    const ang = Math.atan2(vy, vx);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    const grad = ctx.createLinearGradient(0, 0, len, 0);
+    grad.addColorStop(0, 'rgba(255,255,255,0.1)');
+    grad.addColorStop(0.25, color);
+    grad.addColorStop(1, 'rgba(255,255,255,0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, -thickness * 0.5, len, thickness);
+    ctx.restore();
+  }
+
+  function roundedBlock(x, y, w, h, r, fill = true) {
+    const rr = Math.max(2, r);
+    ctx.beginPath();
+    ctx.moveTo(x - w/2 + rr, y - h/2);
+    ctx.arcTo(x + w/2, y - h/2, x + w/2, y + h/2, rr);
+    ctx.arcTo(x + w/2, y + h/2, x - w/2, y + h/2, rr);
+    ctx.arcTo(x - w/2, y + h/2, x - w/2, y - h/2, rr);
+    ctx.arcTo(x - w/2, y - h/2, x + w/2, y - h/2, rr);
+    if (fill) ctx.fill(); else ctx.stroke();
+  }
+
+  function drawBlock(x, y, block, isPlayer, fade = 0, shieldUp = false) {
+    const color = block.color || (isPlayer ? COLORS.player : COLORS.enemy);
+    const size = CELL * 0.92;
+    const aliveFactor = block.alive ? 1 : Math.max(0, fade);
+    const pulse = 0.5 + 0.5 * Math.sin(time * 6 + block.phase);
+    const shieldPulse = shieldUp ? 0.4 + Math.sin(time * 8 + block.phase) * 0.2 : 0;
+    ctx.save();
+    ctx.globalAlpha = aliveFactor;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = block.ability === 'shield' && shieldUp ? 18 + shieldPulse * 12 : 14;
+    if (!block.alive) ctx.globalAlpha *= 0.45;
+    if (isPlayer) {
+      ctx.fillStyle = block.ability === 'pulse' ? COLORS.player : color;
+    } else {
+      ctx.fillStyle = block.ability === 'pulse' ? COLORS.enemy : color;
+    }
+    if (block.flash > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${block.flash * 0.35})`;
+    }
+    roundedBlock(x, y, size, size, 4, true);
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    roundedBlock(x - 3, y - 3, size * 0.36, size * 0.36, 2, true);
+    if (block.ability === 'shield' && shieldUp) {
+      ctx.strokeStyle = `rgba(220,235,255,${0.45 + shieldPulse * 0.25})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, size * 0.7 + shieldPulse * 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (block.ability !== 'pulse') {
+      ctx.globalAlpha = Math.min(1, aliveFactor) * 0.92;
+      ctx.fillStyle = 'rgba(255,255,255,.13)';
+      ctx.fillRect(x - 4, y - 1, 8, 2);
+    }
+    ctx.restore();
+  }
+
+  function render() {
+    draw();
+    requestAnimationFrame(render);
+  }
+
+  function tick() {
+    update(1 / 60);
+    setTimeout(tick, 1000 / 60);
+  }
+
+  function pointerMove(e) {
+    const p = e.touches ? e.touches[0] : e;
+    pointer.x = p.clientX;
+    pointer.y = p.clientY;
+    pointer.active = true;
+    if (state === 'title') {
+      startOverlay.querySelector('.panel').style.transform = 'translateY(-2px)';
+    }
+  }
+
+  function pointerDown(e) {
+    pointerMove(e);
+    if (state !== 'play') startGame();
+  }
+
+  function pointerUp() {
+    pointer.active = false;
+  }
+
+  startBtn.addEventListener('click', startGame);
+  restartBtn.addEventListener('click', startGame);
+  backBtn.addEventListener('click', () => {
+    state = 'title';
+    overOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+    hintEl.classList.remove('hidden');
+    syncScoreboards();
+  });
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    muteBtn.textContent = `Sound: ${muted ? 'Off' : 'On'}`;
+    if (audio && audio.state === 'suspended' && !muted) audio.resume();
+  });
+
+  addEventListener('pointermove', pointerMove, { passive: true });
+  addEventListener('pointerdown', pointerDown, { passive: true });
+  addEventListener('pointerup', pointerUp, { passive: true });
+  addEventListener('touchmove', pointerMove, { passive: true });
+  addEventListener('touchstart', pointerDown, { passive: true });
+  addEventListener('touchend', pointerUp, { passive: true });
+  addEventListener('resize', resize);
+  addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      if (state !== 'play') startGame();
+    }
+    if (e.key.toLowerCase() === 'm') {
+      muted = !muted;
+      muteBtn.textContent = `Sound: ${muted ? 'Off' : 'On'}`;
+    }
+  });
+
+  syncScoreboards();
+  resize();
+  resetGame();
+  state = 'title';
+  updateHud();
+  render();
+  tick();
+})();
+</script>
+</body>
+</html>
